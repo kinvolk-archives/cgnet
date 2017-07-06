@@ -1,0 +1,48 @@
+# from
+# https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/getting-started.md
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: example-app
+  labels:
+    k8s-app: exampleApplication
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: example-app
+    spec:
+      containers:
+      - name: example-app 
+        image: fabxc/instrumented_app
+        ports:
+        - name: web
+          containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-app
+  labels:
+    app: example-app
+    k8s-app: exampleApplication
+spec:
+  selector:
+    app: example-app
+  ports:
+  - name: web
+    port: 8080
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ServiceMonitor
+metadata:
+  name: example-app
+  labels:
+    k8s-app: exampleApplication
+spec:
+  selector:
+    matchLabels:
+      app: example-app
+  endpoints:
+  - port: web
