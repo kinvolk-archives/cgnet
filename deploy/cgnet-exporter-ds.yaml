@@ -1,0 +1,22 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: cgnet-exporter
+  labels:
+    app: cgnet-exporter
+spec:
+  template:
+    metadata:
+      name: cgnet-exporter
+      labels:
+        app: cgnet-exporter
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - image: 10.0.0.240/cgnet-exporter:latest
+        name: cgnet-exporter
+        ports:
+        - containerPort: 9101
+          hostPort: 9101
+          name: scrape

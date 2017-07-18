@@ -1,0 +1,55 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: cgnet-exporter
+  labels:
+    app: cgnet-exporter
+spec:
+  template:
+    metadata:
+      name: cgnet-exporter
+      labels:
+        app: cgnet-exporter
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - image: 10.0.0.240/cgnet-exporter:latest
+        name: cgnet-exporter
+        ports:
+        - containerPort: 9101
+          hostPort: 9101
+          name: scrape
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: cgnet-exporter
+    k8s-app: cgnet-exporter
+  name: cgnet-exporter
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: http-metrics
+    port: 9101
+    protocol: TCP
+  selector:
+    app: cgnet-exporter
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ServiceMonitor
+metadata:
+  name: cgnet-exporter
+  labels:
+    app: cgnet-exporter
+    k8s-app: cgnet-exporter
+spec:
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: cgnet-exporter
+  endpoints:
+  - port: http-metrics
+    interval: 30s
