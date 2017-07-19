@@ -1,26 +1,42 @@
 CONTAINER=10.0.0.240/cgnet-exporter
-BIN=cgnet-exporter
+MANIFEST_DIR=manifests/deploy
+MANIFEST=$(MANIFEST_DIR)/all-in-one.yaml
+BIN=cgnet
 GOOS=linux
+VERSION=$(shell git describe --tags --always --dirty)
 
 .PHONY: all clean build container manifest
 
 all: $(BIN)
 
-build: $(BIN)
-$(BIN):
-	GOOS=$(GOOS) go build -o $@ .
+build: deps $(BIN)
+$(BIN): bpf/bindata.go
+	GOOS=$(GOOS) go build \
+	     -ldflags "-X github.com/kinvolk/cgnet/cmd.version=$(VERSION)" \
+	     -o $@ .
+
+bpf/bindata.go:
+	@make -C bpf/
 
 container: $(BIN)
 	docker build -t $(CONTAINER):latest .
 	docker push $(CONTAINER):latest
 
-manifest: deploy/all-in-one.yaml
-deploy/all-in-one.yaml:
-	@make -C deploy/
+manifest: $(MANIFEST)
+$(MANIFEST):
+	@make -C $(MANIFEST_DIR)
 
 clean:
 	rm -rf $(BIN)
-	@make -C deploy/ clean
+	@make -C bpf/ clean
 
-dist-clean:
+deploy-clean: clean
+	@make -C $(MANIFEST_DIR) clean
 	docker rmi $(CONTAINER):latest
+
+deps: build-deps
+	dep ensure
+
+build-deps:
+	go get -u github.com/golang/dep/...
+	go get -u github.com/jteeuwen/go-bindata/...
