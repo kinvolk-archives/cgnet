@@ -18,36 +18,29 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-
-	"github.com/kinvolk/cgnet/bpf"
 )
 
+var version string
+var printVersion bool
+
 var RootCmd = &cobra.Command{
-	Use:   "cgnet <cgroup-path>",
-	Short: "cgroup-ebpf experiment",
-	Run: func(cmd *cobra.Command, args []string) {
-		if args[0] == "" {
-			return cmd.Usage()
-		}
-
-		if err := bpf.Setup(args[0]); err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to load bpf: %s", err)
-			os.Exit(1)
-		}
-
-		quit := make(chan struct{})
-		defer close(quit)
-
-		if err := bpf.UpdateLoop(quit); err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to load bpf: %s", err)
-			os.Exit(1)
+	Use:   "cgnet",
+	Short: "cgroup network statistics",
+	Run: func(cmd *cobra.Command, _ []string) {
+		if printVersion {
+			fmt.Fprintln(os.Stdout, cmd.Name(), version)
+			os.Exit(0)
 		}
 	},
 }
 
 func Execute() {
 	if err := RootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func init() {
+	RootCmd.PersistentFlags().BoolVarP(&printVersion, "version", "V", false, "print version information")
 }
