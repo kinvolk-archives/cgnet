@@ -2,18 +2,9 @@
 
 ## Components
 
-* `ds.yaml` - runs cgnet as a Kubernetes DaemonSet
-* `cgt-agent` - collect Pod data from Kubernetes API, install eBPF programs and expose data
-* `bpf/` - contains actual ebpf tracing code
-* `prometheus.yaml` - example configuration for prometheus
-
-### What is does:
-
-- [ ] Detect pods on the node
-- [ ] Subscribe to k8s new pod event
-- [ ] Run `bpf-tracer` on all nodes
-- [ ] Read bpf-map
-- [ ] Expose data to prometheus
+* `bpf/` - contains actual ebpf tracing code and the Go code to interact with it
+* `manifests/deploy` - has Kubernetes configuration files to run `cgnet` as a Prometheus exporter
+* `manifests/example` - has configuration files to set up a cluster for testing the exporter
 
 ## Dependencies
 
@@ -25,4 +16,4 @@ cgroups](https://github.com/torvalds/linux/commit/ca89fa77b4488ecf2e3f72096386e8
 
 ## Vendoring
 
-We use [gvt](https://github.com/FiloSottile/gvt).
+We use [dep](https://github.com/golang/dep).
