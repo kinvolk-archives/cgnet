@@ -14,39 +14,61 @@ limitations under the License.
 package kube
 
 import (
-	"log"
+	"context"
 	"time"
 
-	"k8s.io/api/core/v1"
+	// "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/pkg/api/v1"
+
+	log "github.com/inconshreveable/log15"
 )
 
-func RunPodInformer(stop chan struct{}, events chan Event) {
-	cfg, err := rest.InClusterConfig()
+func WatchPodEvents(ctx context.Context, cancelFunc context.CancelFunc, cfg *rest.Config, events chan Event) {
+	_, err := watchCustomResources(ctx, cfg, events)
 	if err != nil {
-		panic(err)
+		cancelFunc()
+		return
 	}
 
-	cs, err := kubernetes.NewForConfig(cfg)
+	<-ctx.Done()
+	log.Info("stopped watching events")
+}
+
+func watchCustomResources(ctx context.Context, cfg *rest.Config, events chan Event) (cache.Controller, error) {
+	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		panic(err)
+		log.Error("error creating configset", "err", err)
+		return nil, err
 	}
 
 	// watch new pod events
-	lw := cache.NewListWatchFromClient(cs.Core().RESTClient(), "pods", v1.NamespaceDefault, fields.Everything())
-	_, ctl := cache.NewInformer(
-		lw,
+	source := cache.NewListWatchFromClient(clientset.Core().RESTClient(), string(v1.ResourcePods), v1.NamespaceDefault, fields.Everything())
+	_, k8sController := cache.NewInformer(
+		source,
 		&v1.Pod{},
-		0*time.Second,
+		1*time.Minute,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    emitEvent(events, NewPodEvent),
-			DeleteFunc: emitEvent(events, DeletePodEvent),
+			AddFunc:    onAdd(events),
+			UpdateFunc: onUpdate(events),
+			DeleteFunc: onDelete(events),
 		},
 	)
 
-	log.Println("started watching pod events")
-	ctl.Run(stop)
+	go k8sController.Run(ctx.Done())
+	log.Info("started watching events", "resource", v1.ResourcePods)
+
+	return k8sController, nil
+}
+
+func BuildConfig(kubeconfig string) (*rest.Config, error) {
+	if kubeconfig != "" {
+		return clientcmd.BuildConfigFromFlags("", kubeconfig)
+	}
+	log.Warn("assume running inside k8s cluster")
+	return rest.InClusterConfig()
 }

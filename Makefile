@@ -11,7 +11,7 @@ all: $(BIN)
 
 build: deps $(BIN)
 $(BIN): bpf/bindata.go
-	GOOS=$(GOOS) go build \
+	go build \
 	     -ldflags "-X github.com/kinvolk/cgnet/cmd.version=$(VERSION)" \
 	     -o $@ .
 
@@ -35,7 +35,7 @@ deploy-clean: clean
 	docker rmi $(CONTAINER):latest
 
 deps: build-deps
-	dep ensure
+	dep ensure -v
 
 build-deps:
 	go get -u github.com/golang/dep/...
