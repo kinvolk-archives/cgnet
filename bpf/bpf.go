@@ -1,3 +1,19 @@
+/*
+Copyright 2017 Kinvolk GmbH
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package bpf
 
 import (
@@ -5,10 +21,9 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 	"unsafe"
 
-	"github.com/iovisor/gobpf/elf"
+	bpf "github.com/iovisor/gobpf/elf"
 )
 
 /*
@@ -16,88 +31,79 @@ import (
 */
 import "C"
 
-const assetpath string = "out/cgnet.o"
-const mapname string = "count"
-
-var (
-	zero       uint32 = 0
-	packetsKey uint32 = zero
-	bytesKey   uint32 = 1
-
-	b *elf.Module
+const (
+	assetPath string = "out/cgnet.o"
+	mapName   string = "count_map"
 )
 
-func Setup(cgroupPath string) error {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
-	// for quick development on the bpf program
-	if path := os.Getenv("BPF_PROG_PATH"); path != "" {
-		fmt.Printf("using: %s\n", path)
-		b = elf.NewModule(path)
-	} else {
-		reader := bytes.NewReader(MustAsset(assetpath))
-		b = elf.NewModuleFromReader(reader)
-	}
-	if b == nil {
-		return fmt.Errorf("System doesn't support BPF")
-	}
-
-	if err := b.Load(nil); err != nil {
-		return fmt.Errorf("%s", err)
+func Attach(cgroupPath string) (*Controller, error) {
+	b, err := initModule()
+	if err != nil {
+		return nil, err
 	}
 
 	for prog := range b.IterCgroupProgram() {
-		if err := elf.AttachCgroupProgram(prog, cgroupPath, elf.EgressType); err != nil {
-			return fmt.Errorf("%s", err)
+		if err := bpf.AttachCgroupProgram(prog, cgroupPath, bpf.EgressType); err != nil {
+			return nil, fmt.Errorf("error attaching to cgroup %s: %s", cgroupPath, err)
 		}
 	}
 
-	mp := b.Map(mapname)
-	if mp == nil {
-		return fmt.Errorf("Can't find map '%s'", mapname)
+	if err := initMap(b); err != nil {
+		return nil, err
 	}
 
-	if err := b.UpdateElement(mp, unsafe.Pointer(&packetsKey), unsafe.Pointer(&zero), C.BPF_ANY); err != nil {
+	ctl := &Controller{
+		cgroup: cgroupPath,
+		module: b,
+		quit:   make(chan struct{}),
+	}
+	return ctl, nil
+}
+
+func initModule() (*bpf.Module, error) {
+	var b *bpf.Module
+	if path := os.Getenv("BPF_PROG_PATH"); path != "" {
+		// for development
+		b = bpf.NewModule(path)
+	} else {
+		// from assets
+		reader := bytes.NewReader(MustAsset(assetPath))
+		b = bpf.NewModuleFromReader(reader)
+	}
+	if b == nil {
+		return nil, fmt.Errorf("system doesn't seem to support BPF")
+	}
+
+	if err := b.Load(nil); err != nil {
+		return nil, fmt.Errorf("loading module failed: %s", err)
+	}
+	return b, nil
+}
+
+func initMap(b *bpf.Module) error {
+	if err := update(b, packetsKey, 0); err != nil {
 		return fmt.Errorf("error updating map: %s", err)
 	}
-
-	if err := b.UpdateElement(mp, unsafe.Pointer(&bytesKey), unsafe.Pointer(&zero), C.BPF_EXIST); err != nil {
+	if err := update(b, bytesKey, 0); err != nil {
 		return fmt.Errorf("error updating map: %s", err)
 	}
-
-	fmt.Println("Ready.")
 	return nil
 }
 
-func UpdateLoop(quit chan struct{}) error {
-	mp := b.Map(mapname)
-	if mp == nil {
-		return fmt.Errorf("Can't find map '%s'", mapname)
-	}
+func update(b *bpf.Module, key uint32, value uint64) error {
 
-	var packets, bytes uint64
-
-	for {
-		select {
-		case <-quit:
-			return nil
-		case <-time.After(1000 * time.Millisecond):
-			if err := updateElements(mp, packets, bytes); err != nil {
-				return err
-			}
-			fmt.Printf("cgroup received %d packets (%d bytes)\n", packets, bytes)
-		}
+	mp := b.Map(mapName)
+	if err := b.UpdateElement(mp, unsafe.Pointer(&key), unsafe.Pointer(&value), C.BPF_ANY); err != nil {
+		return err
 	}
+	return nil
 }
 
-func updateElements(mp *elf.Map, packets, bytes uint64) error {
-	if err := b.LookupElement(mp, unsafe.Pointer(&packetsKey), unsafe.Pointer(&packets)); err != nil {
-		return fmt.Errorf("error looking up in map: %s", err)
+func lookup(b *bpf.Module, key uint32) (uint64, error) {
+	mp := b.Map(mapName)
+	var value uint64
+	if err := b.LookupElement(mp, unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
+		return 0, err
 	}
-
-	if err := b.LookupElement(mp, unsafe.Pointer(&bytesKey), unsafe.Pointer(&bytes)); err != nil {
-		return fmt.Errorf("error looking up in map: %s", err)
-	}
-
-	return nil
+	return value, nil
 }

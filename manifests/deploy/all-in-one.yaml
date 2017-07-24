@@ -20,6 +20,9 @@ spec:
         - containerPort: 9101
           hostPort: 9101
           name: scrape
+        securityContext:
+          privileged: true
+
 ---
 apiVersion: v1
 kind: Service

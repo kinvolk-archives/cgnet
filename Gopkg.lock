@@ -104,6 +104,12 @@
   revision = "f3f9494671f93fcff853e3c6e9e948b3eb71e590"
 
 [[projects]]
+  name = "github.com/go-stack/stack"
+  packages = ["."]
+  revision = "817915b46b97fd7bb80e8ab6b69f01a53ac3eebf"
+  version = "v1.6.0"
+
+[[projects]]
   name = "github.com/gogo/protobuf"
   packages = ["proto","sortkeys"]
   revision = "100ba4e885062801d56799d78530b73b178a78f3"
@@ -146,10 +152,10 @@
   version = "0.2.2"
 
 [[projects]]
+  branch = "master"
   name = "github.com/inconshreveable/log15"
-  packages = ["."]
-  revision = "b105bd37f74e5d9dc7b6ad7806715c7a2b83fd3f"
-  version = "v2.11"
+  packages = [".","term"]
+  revision = "74a0988b5f804e8ce9ff74fca4f16980776dff29"
 
 [[projects]]
   branch = "master"
@@ -266,12 +272,6 @@
   revision = "836efe42bb4aa16aaa17b9c155d8813d336ed720"
 
 [[projects]]
-  name = "gopkg.in/inconshreveable/log15.v2"
-  packages = ["stack","term"]
-  revision = "dc7890abeaadcb6a79a9a5ee30bc1897bbf97713"
-  version = "v2.10"
-
-[[projects]]
   name = "gopkg.in/inf.v0"
   packages = ["."]
   revision = "3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4"
@@ -304,6 +304,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "34d8ab7a8049e631527276ab85ee79f0741daff5d1e939065559b0eea8a85173"
+  inputs-digest = "ce31e62f846c3493e12c8c37099429d30e83253762628f3840df3aacb8846eec"
   solver-name = "gps-cdcl"
   solver-version = 1
