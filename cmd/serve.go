@@ -14,15 +14,23 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/spf13/cobra"
 
 	"github.com/kinvolk/cgnet/kube"
 	"github.com/kinvolk/cgnet/metrics"
 )
 
-var metricsPort int
+var (
+	metricsPort int
+	kubeconfig  string
+)
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
@@ -31,20 +39,35 @@ var serveCmd = &cobra.Command{
 }
 
 func cmdServe(cmd *cobra.Command, args []string) {
-	stop := make(chan struct{})
-	defer close(stop)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	cfg, err := kube.BuildConfig(kubeconfig)
+	if err != nil {
+		log.Error("error building config", "err", err)
+		return
+	}
 
 	events := make(chan kube.Event)
-	go kube.RunPodInformer(stop, events)
-	go metrics.Serve(fmt.Sprintf(":%d", metricsPort))
+	go kube.WatchPodEvents(ctx, cancelFunc, cfg, events)
+
+	addr := fmt.Sprintf(":%d", metricsPort)
+	go metrics.Serve(ctx, addr)
 
 	// TODO
 	// * install bpf program on every 'new pod' event
 	// * query the bpf maps to retrieve data
 	// * update podmetrics with data
 
+	term := make(chan os.Signal)
+	signal.Notify(term, syscall.SIGINT, syscall.SIGTERM)
+
 	for {
 		select {
+		case <-term:
+			return
+		case <-ctx.Done():
+			return
 		case e := <-events:
 			switch e {
 			case kube.NewPodEvent:
@@ -59,4 +82,5 @@ func cmdServe(cmd *cobra.Command, args []string) {
 func init() {
 	RootCmd.AddCommand(serveCmd)
 	serveCmd.Flags().IntVarP(&metricsPort, "port", "p", 9101, "metrics port")
+	serveCmd.Flags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "path to kubeconfig file. Only required if out-of-cluster.")
 }

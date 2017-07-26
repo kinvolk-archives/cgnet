@@ -30,6 +30,7 @@ var topCmd = &cobra.Command{
 func cmdTop(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		cmd.Usage()
+		os.Exit(0)
 	}
 
 	if err := bpf.Setup(args[0]); err != nil {

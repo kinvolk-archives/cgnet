@@ -14,9 +14,11 @@ limitations under the License.
 package metrics
 
 import (
-	"log"
+	"context"
 	"net/http"
+	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -62,8 +64,23 @@ func init() {
 	prometheus.MustRegister(GlobalPodMetrics.OutgoingPackets)
 }
 
-func Serve(addr string) {
-	log.Printf("started serving metrics on %s", addr)
+func Serve(ctx context.Context, addr string) {
 	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(addr, nil))
+	srv := http.Server{
+		Addr:    addr,
+		Handler: http.DefaultServeMux,
+	}
+	go srv.ListenAndServe()
+
+	log.Info("serving metrics", "addr", addr)
+	<-ctx.Done()
+
+	toCtx, cancelFunc := context.WithTimeout(ctx, 2*time.Second)
+	defer cancelFunc()
+
+	log.Info("waiting for server shutdown")
+	if err := srv.Shutdown(toCtx); err != nil {
+		panic(err)
+	}
+	log.Info("server stopped")
 }
