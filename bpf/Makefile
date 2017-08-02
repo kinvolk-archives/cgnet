@@ -1,7 +1,6 @@
 OUTDIR=out
 OUTFILE=$(OUTDIR)/cgnet.o
 
-
 .PHONY: all build clean
 
 all: $(OUTFILE) bindata.go
@@ -18,6 +17,5 @@ bindata.go:
 	go-bindata -pkg bpf out/
 
 clean:
-	rm -rf cgnet.o
 	rm -rf bindata.go
 	rm -rf $(OUTFILE)

@@ -1,9 +1,12 @@
 /*
 Copyright 2017 Kinvolk GmbH
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -13,17 +16,7 @@ limitations under the License.
 
 package metrics
 
-import (
-	"context"
-	"net/http"
-	"time"
-
-	log "github.com/inconshreveable/log15"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-)
-
-const namespace string = "cgnet_pod"
+import "github.com/prometheus/client_golang/prometheus"
 
 type PodMetrics struct {
 	TotalNumberPods prometheus.Gauge
@@ -32,7 +25,7 @@ type PodMetrics struct {
 	// ...
 }
 
-var GlobalPodMetrics = PodMetrics{
+var globalPodMetrics = PodMetrics{
 	TotalNumberPods: prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name:      "total_number_pods",
@@ -58,29 +51,14 @@ var GlobalPodMetrics = PodMetrics{
 	),
 }
 
-func init() {
-	prometheus.MustRegister(GlobalPodMetrics.TotalNumberPods)
-	prometheus.MustRegister(GlobalPodMetrics.IncomingPackets)
-	prometheus.MustRegister(GlobalPodMetrics.OutgoingPackets)
+func TotalNum() prometheus.Gauge {
+	return globalPodMetrics.TotalNumberPods
 }
 
-func Serve(ctx context.Context, addr string) {
-	http.Handle("/metrics", promhttp.Handler())
-	srv := http.Server{
-		Addr:    addr,
-		Handler: http.DefaultServeMux,
-	}
-	go srv.ListenAndServe()
+func SetOutgoingPackets(pod string, packets float64) {
+	globalPodMetrics.OutgoingPackets.With(prometheus.Labels{"pod_name": pod}).Add(packets)
+}
 
-	log.Info("serving metrics", "addr", addr)
-	<-ctx.Done()
-
-	toCtx, cancelFunc := context.WithTimeout(ctx, 2*time.Second)
-	defer cancelFunc()
-
-	log.Info("waiting for server shutdown")
-	if err := srv.Shutdown(toCtx); err != nil {
-		panic(err)
-	}
-	log.Info("server stopped")
+func SetIncomingPackets(pod string, packets float64) {
+	globalPodMetrics.IncomingPackets.With(prometheus.Labels{"pod_name": pod}).Add(packets)
 }

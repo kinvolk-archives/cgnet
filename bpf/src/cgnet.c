@@ -20,7 +20,10 @@
 #include <stddef.h>
 #include "bpf_helpers.h"
 
-struct bpf_map_def SEC("maps/count") count_map = {
+#define PACKETS_KEY 0
+#define BYTES_KEY 1
+
+struct bpf_map_def SEC("maps/count_map") count_map = {
 	.type = BPF_MAP_TYPE_ARRAY,
 	.key_size = sizeof(int),
 	.value_size = sizeof(__u64),
@@ -29,7 +32,7 @@ struct bpf_map_def SEC("maps/count") count_map = {
 
 SEC("cgroup/skb")
 int count_packets(struct __sk_buff *skb) {
-    int packets_key = 0, bytes_key = 1;
+    int packets_key = PACKETS_KEY, bytes_key = BYTES_KEY;
     __u64 *packets = 0;
     __u64 *bytes = 0;
 

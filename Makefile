@@ -22,8 +22,8 @@ container: $(BIN)
 	docker build -t $(CONTAINER):latest .
 	docker push $(CONTAINER):latest
 
-manifest: $(MANIFEST)
-$(MANIFEST):
+manifest:
+	@make -C $(MANIFEST_DIR) clean
 	@make -C $(MANIFEST_DIR)
 
 clean:
@@ -31,7 +31,6 @@ clean:
 	@make -C bpf/ clean
 
 deploy-clean: clean
-	@make -C $(MANIFEST_DIR) clean
 	docker rmi $(CONTAINER):latest
 
 deps: build-deps

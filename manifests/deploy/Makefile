@@ -4,11 +4,11 @@ TARGET:=all-in-one.yaml
 
 all: $(TARGET)
 $(TARGET):
-	@cat cgnet-exporter-ds.yaml > $@
+	cat cgnet-exporter-ds.yaml > $@
 	@echo "---" >> $@
-	@cat cgnet-exporter-svc.yaml >> $@
+	cat cgnet-exporter-svc.yaml >> $@
 	@echo "---" >> $@
-	@cat cgnet-exporter-svc-monitor.yaml >> $@
+	cat cgnet-exporter-svc-monitor.yaml >> $@
 
 clean: $(TARGET)
 	rm -rf $<
